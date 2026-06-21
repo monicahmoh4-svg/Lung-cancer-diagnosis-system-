@@ -1,43 +1,39 @@
-import torch
+from fastapi import FastAPI, UploadFile, File
 import numpy as np
+import cv2
 import sys
 import os
 
-# FIX: ensure root path is included
+# FIX: add root path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from models.dncnn import DnCNN
-from processing.preprocessing import normalize
-from processing.filters import anisotropic_gaussian
-from processing.wavelet import decompose, reconstruct
+from app.pipeline import denoise
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+app = FastAPI()
 
-model = DnCNN().to(device)
+@app.get("/")
+def root():
+    return {"status": "API running"}
 
-try:
-    model.load_state_dict(torch.load("models/weights/dncnn.pth", map_location=device))
-except:
-    pass
+@app.post("/denoise/")
+async def denoise_image(file: UploadFile = File(...)):
 
-model.eval()
+    contents = await file.read()
 
-def process_band(band):
-    tensor = torch.tensor(band).unsqueeze(0).unsqueeze(0).float().to(device)
-    with torch.no_grad():
-        out = model(tensor)
-    return out.squeeze().cpu().numpy()
+    np_arr = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(np_arr, cv2.IMREAD_GRAYSCALE)
 
-def denoise(img):
-    img = normalize(img)
-    img = anisotropic_gaussian(img)
+    if img is None:
+        return {"error": "Invalid image"}
 
-    LL, (LH, HL, HH) = decompose(img)
+    img = cv2.resize(img, (512,512)) / 255.0
 
-    LH = process_band(LH)
-    HL = process_band(HL)
-    HH = process_band(HH)
+    output = denoise(img)
 
-    result = reconstruct((LL, (LH, HL, HH)))
+    output_img = (output * 255).astype(np.uint8)
+    _, buffer = cv2.imencode('.png', output_img)
 
-    return np.clip(result, 0, 1)
+    return {
+        "message": "success",
+        "image_bytes": buffer.tobytes().hex()
+    }
