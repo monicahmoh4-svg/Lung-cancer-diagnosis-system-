@@ -3,15 +3,17 @@ import numpy as np
 import sys
 import os
 
-# FIX: ensure root path is included
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# ✅ CRITICAL FIX: force root directory into path
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
 
 from models.dncnn import DnCNN
 from processing.preprocessing import normalize
 from processing.filters import anisotropic_gaussian
 from processing.wavelet import decompose, reconstruct
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cpu"  # safer for Render
 
 model = DnCNN().to(device)
 
