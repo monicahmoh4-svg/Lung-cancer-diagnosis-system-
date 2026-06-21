@@ -1,14 +1,10 @@
 torch
 torchvision
 numpy
-opencv-python
+opencv-python-headless
 pydicom
 pywavelets
 scikit-image
 fastapi
 uvicorn
 python-multipart
-kaggle
-streamlit
-onnx
-onnxruntime
